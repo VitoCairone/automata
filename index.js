@@ -44,7 +44,7 @@ function showGrid(grid) {
         let rowStr = ""
         for (var i = 0; i < grid.n_i; i++) {
             rowStr += "["
-                + getGridCellAt(grid, i, j).neighbors.length
+                + (getGridCellAt(grid, i, j).age || " ")
                 + "]"
         }
         console.log(rowStr);
@@ -55,20 +55,22 @@ function createCell(i, j) {
     return {
         i: i,
         j: j,
-        age: 1,
+        age: 0,
         neighbors: []
     }
 }
 
-function forAllCells(fnActionOnCell) {
+function forAllCells(grid, fnActionOnCell) {
     grid.cells.forEach(row => {
         row.forEach(cell => { fnActionOnCell(cell) })
     });
 }
 
+// takes a grid and, for every cell, assigns its neighbors,
+// as an array of 3, 5, or 8 pointers to other cell objects
 function assignNeighbors(grid) {
     // neighbors don't change over time, so do this once
-    forAllCells(cell => {
+    forAllCells(grid, cell => {
         const shifts = [
             [-1,-1],
             [-1, 0],
@@ -84,13 +86,72 @@ function assignNeighbors(grid) {
         neighbors = neighbors.filter(nei => {
             return nei[0] >= 0 && nei[1] >= 0 && nei[0] < grid.n_i && nei[1] < grid.n_j;
         });
+        neighbors = neighbors.map(nei => getGridCellAt(grid, nei[0], nei[1]))
         cell.neighbors = neighbors;
     })
 }
 
-const grid = createGrid(4, 5, createCell);
-showGrid(grid)
+function evolutionRule(cell) {
+    let nNeighbors;
+    switch (cell.age) {
+        case 0: //empty
+            // empty + exactly 2 adult neighbors
+            const nAdultNeighbors = cell.neighbors.filter(nei => nei.age === 2).length;
+            if (nAdultNeighbors === 2) {
+                return 1; // Reproduction
+            }
+            return 0; // No change
+        case 1: // newborn
+            nNeighbors = cell.neighbors.filter(nei => nei.age !== 0).length;
+            if (nNeighbors >= 5) {
+                return 0; // Overcrowding
+            } else if (nNeighbors <= 1) {
+                return 0; // Isolation
+            } else {
+                return 2; // Growing up
+            }
+        case 2: // adult
+            nNeighbors = cell.neighbors.filter(nei => nei.age !== 0).length;
+            if (nNeighbors >= 3) {
+                return 0; // Overcrowding
+            } else if (nNeighbors == 0) {
+                return 0; // Isolation
+            } else {
+                return 3; // Aging
+            }
+        case 3: // senior
+            return 0; // Natural Causes
+    }
+}
 
+function runEvolution(grid) {
+    forAllCells(grid, cell => cell.future = evolutionRule(cell));
+    forAllCells(grid, cell => cell.age = cell.future);
+}
 
-assignNeighbors(grid);
-showGrid(grid)
+// this is a manual function for now to input non-zero vals,
+// prefer to read data blocks directly if possible
+// seedVals format: [[i, j, age], [i2, j2, age2], ...]
+function seedGrid(grid, seedVals) {
+    seedVals.forEach(sV => getGridCellAt(grid, sV[0], sV[1]).age = sV[2]);
+}
+
+function printEvolutions(n_i, n_j, seedVals, maxGeneration) {
+    const grid = createGrid(n_i, n_j, createCell);
+    assignNeighbors(grid); // todo: make createGrid call this instead
+    seedGrid(grid, seedVals);
+
+    console.log("===== Generation 1 =====");
+    showGrid(grid);
+    for (var gen = 2; gen <= maxGeneration; gen++) {
+        runEvolution(grid);
+        console.log("===== Generation " + gen + " =====");
+        showGrid(grid);
+    }
+}
+
+printEvolutions(5, 5,
+    [
+        [2,0,1], [2,1,1], [3,1,1], [1,2,2], [2,2,2], [3,2,1], [3,3,1]
+    ]
+, 2)
