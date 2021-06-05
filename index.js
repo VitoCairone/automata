@@ -43,10 +43,54 @@ function showGrid(grid) {
     for (var j = 0; j < grid.n_j; j++) {
         let rowStr = ""
         for (var i = 0; i < grid.n_i; i++) {
-            rowStr += "[" + getGridCellAt(grid, i, j) + "]"
+            rowStr += "["
+                + getGridCellAt(grid, i, j).neighbors.length
+                + "]"
         }
         console.log(rowStr);
     };
 }
 
-showGrid(createGrid(4, 5, null))
+function createCell(i, j) {
+    return {
+        i: i,
+        j: j,
+        age: 1,
+        neighbors: []
+    }
+}
+
+function forAllCells(fnActionOnCell) {
+    grid.cells.forEach(row => {
+        row.forEach(cell => { fnActionOnCell(cell) })
+    });
+}
+
+function assignNeighbors(grid) {
+    // neighbors don't change over time, so do this once
+    forAllCells(cell => {
+        const shifts = [
+            [-1,-1],
+            [-1, 0],
+            [-1, 1],
+            [0, -1],
+            [0, 1],
+            [1, -1],
+            [1, 0],
+            [1, 1]
+        ];
+
+        let neighbors = shifts.map(shift => [shift[0] + cell.i, shift[1] + cell.j]);
+        neighbors = neighbors.filter(nei => {
+            return nei[0] >= 0 && nei[1] >= 0 && nei[0] < grid.n_i && nei[1] < grid.n_j;
+        });
+        cell.neighbors = neighbors;
+    })
+}
+
+const grid = createGrid(4, 5, createCell);
+showGrid(grid)
+
+
+assignNeighbors(grid);
+showGrid(grid)
